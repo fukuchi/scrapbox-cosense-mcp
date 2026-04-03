@@ -6,8 +6,9 @@ import { handleCreatePage } from './routes/handlers/create-page.js';
 import { handleGetPageUrl } from './routes/handlers/get-page-url.js';
 import { handleInsertLines } from './routes/handlers/insert-lines.js';
 import { handleGetSmartContext } from './routes/handlers/get-smart-context.js';
+import { handleSearchPagesPrioritized } from './routes/handlers/search-pages-prioritized.js';
 
-const CLI_COMMANDS = ['get', 'list', 'search', 'create', 'url', 'insert', 'context'] as const;
+const CLI_COMMANDS = ['get', 'list', 'search', 'title-search', 'create', 'url', 'insert', 'context'] as const;
 type CliCommand = typeof CLI_COMMANDS[number];
 
 interface ParsedArgs {
@@ -88,6 +89,16 @@ Arguments:
 
 ${COMMON_OPTIONS}`,
 
+  'title-search': `Usage: scrapbox-cosense-mcp title-search <query> [options]
+
+Search pages by keyword, prioritizing pages whose titles contain the search keywords (max 100 results).
+Supports AND search (multiple words), exclusion (-word), exact match ("phrase").
+
+Arguments:
+  <query>                        Search query (required)
+
+${COMMON_OPTIONS}`,
+
   create: `Usage: scrapbox-cosense-mcp create <title> [options]
 
 Create a new page. Requires COSENSE_SID.
@@ -160,6 +171,7 @@ Commands:
   get <title>                    Get page content
   list                           List pages with sorting/pagination
   search <query>                 Search pages by keyword
+  title-search <query>           Search pages, prioritizing title matches
   create <title>                 Create a new page
   url <title>                    Get page URL
   insert <title>                 Insert lines into a page
@@ -273,6 +285,21 @@ export async function runCli(argv: string[]): Promise<void> {
       }
       const project = requireProjectName(flags);
       result = await handleSearchPages(project, sid, {
+        query,
+        projectName: typeof flags['project'] === 'string' ? flags['project'] : undefined,
+        compact,
+      });
+      break;
+    }
+
+    case 'title-search': {
+      const query = positional[0];
+      if (!query) {
+        process.stderr.write('Error: Search query is required. Usage: scrapbox-cosense-mcp title-search <query>\n');
+        process.exit(2);
+      }
+      const project = requireProjectName(flags);
+      result = await handleSearchPagesPrioritized(project, sid, {
         query,
         projectName: typeof flags['project'] === 'string' ? flags['project'] : undefined,
         compact,

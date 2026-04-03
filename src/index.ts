@@ -278,6 +278,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: getToolName("search_pages_by_title"),
+        description: `Search for pages in Scrapbox project on ${SERVICE_LABEL}, prioritizing pages whose titles contain the search keywords. Unlike search_pages which uses relevance ranking, this tool lists title-matching pages first so important pages are not buried by low-relevance results. Returns matching pages with highlighted search terms and content snippets. Limited to 100 results maximum. Supports basic search ("keyword"), multiple keywords ("word1 word2" for AND search), exclude words ("word1 -word2"), and exact phrases ("\\"exact phrase\\""). Uses ${projectName} project as default if projectName is not specified.`,
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description: "Search query string",
+            },
+            projectName: {
+              type: "string",
+              description: `Target project name. If not specified, defaults to '${projectName}'.`,
+            },
+          },
+          required: ["query"],
+        },
+      },
+      {
         name: getToolName("get_smart_context"),
         description: `Get smart context for a page on ${SERVICE_LABEL}. Returns the target page and its linked pages (1-hop or 2-hop) with full content in AI-optimized format. Useful for understanding the context and related knowledge around a specific topic. Requires COSENSE_SID authentication. Uses ${projectName} project as default if projectName is not specified.`,
         inputSchema: {
