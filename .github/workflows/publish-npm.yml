@@ -91,8 +91,52 @@ jobs:
           echo "already_published=false" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: npm に公開
+    - name: クールダウン期間の確認 (2週間)
+      id: check-cooldown
       if: steps.check-npm.outputs.already_published != 'true'
+      run: |
+        PKG_NAME=$(node -p "require('./package.json').name")
+        COOLDOWN_DAYS=14
+        COOLDOWN_SECONDS=$((COOLDOWN_DAYS * 24 * 60 * 60))
+
+        LAST_PUBLISHED=$(npm view "${PKG_NAME}" time --json 2>/dev/null | node -e "
+          const chunks = [];
+          process.stdin.on('data', d => chunks.push(d));
+          process.stdin.on('end', () => {
+            try {
+              const data = JSON.parse(chunks.join(''));
+              const versions = Object.keys(data).filter(k => !['created', 'modified'].includes(k));
+              if (versions.length === 0) { process.stdout.write(''); process.exit(0); }
+              versions.sort((a, b) => new Date(data[b]) - new Date(data[a]));
+              process.stdout.write(data[versions[0]]);
+            } catch { process.stdout.write(''); }
+          });
+        ")
+
+        SECONDS_PER_DAY=86400
+
+        if [ -z "$LAST_PUBLISHED" ]; then
+          echo "npm にまだ公開されていません。公開を続けます。"
+          echo "cooldown_ok=true" >> "$GITHUB_OUTPUT"
+        else
+          LAST_PUBLISHED_EPOCH=$(date -d "$LAST_PUBLISHED" +%s)
+          NOW_EPOCH=$(date +%s)
+          ELAPSED=$((NOW_EPOCH - LAST_PUBLISHED_EPOCH))
+
+          if [ "$ELAPSED" -lt "$COOLDOWN_SECONDS" ]; then
+            REMAINING_DAYS=$(( (COOLDOWN_SECONDS - ELAPSED) / SECONDS_PER_DAY ))
+            REMAINING_HOURS=$(( (COOLDOWN_SECONDS - ELAPSED) % SECONDS_PER_DAY / 3600 ))
+            echo "クールダウン期間中です。最後の公開: ${LAST_PUBLISHED}"
+            echo "あと約 ${REMAINING_DAYS} 日 ${REMAINING_HOURS} 時間後に公開可能になります。スキップします。"
+            echo "cooldown_ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "クールダウン期間を過ぎています。最後の公開: ${LAST_PUBLISHED}"
+            echo "cooldown_ok=true" >> "$GITHUB_OUTPUT"
+          fi
+        fi
+
+    - name: npm に公開
+      if: steps.check-npm.outputs.already_published != 'true' && steps.check-cooldown.outputs.cooldown_ok == 'true'
       run: npm publish --provenance
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
