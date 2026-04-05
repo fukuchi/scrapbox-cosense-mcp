@@ -7,6 +7,7 @@ import { handleCreatePage } from './handlers/create-page.js';
 import { handleGetPageUrl } from './handlers/get-page-url.js';
 import { handleInsertLines } from './handlers/insert-lines.js';
 import { handleGetSmartContext } from './handlers/get-smart-context.js';
+import { handleSearchPagesPrioritized } from './handlers/search-pages-prioritized.js';
 
 // ツール名正規化ヘルパー
 function normalizeToolName(toolName: string, toolSuffix?: string): string {
@@ -93,6 +94,16 @@ export function setupRoutes(
             text: String(request.params.arguments?.text),
             projectName: request.params.arguments?.projectName as string | undefined,
             format: (request.params.arguments?.format as "markdown" | "scrapbox" | undefined) ?? undefined
+          }
+        );
+
+      case "search_pages_by_title":
+        return handleSearchPagesPrioritized(
+          projectName,
+          cosenseSid,
+          {
+            query: String(request.params.arguments?.query),
+            projectName: request.params.arguments?.projectName as string | undefined
           }
         );
 
